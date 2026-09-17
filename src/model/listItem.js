@@ -3,7 +3,7 @@
  *
  * One row inside a Wolfie List. An item is a plain object:
  *
- *     { id, description, dateEntered }
+ *     { id, description, dateEntered, priority, targetDate, completed }
  *
  * Nothing here ever changes an item. To edit one, build a new object carrying
  * the same id, i.e. { ...item, ...newValues }.
@@ -11,16 +11,32 @@
 import { IdGenerator } from '../common/IdGenerator.js';
 import { DateUtil } from '../common/DateUtil.js';
 
+export const PRIORITIES = ['High', 'Medium', 'Low'];
+
+/** @return {string} one of High, Medium or Low */
+export function normalizePriority(value) {
+    return PRIORITIES.includes(value) ? value : 'Low';
+}
+
 /**
  * @param {Object} values any of the item's fields, the rest get defaults
  * @return {Object} a new item
  */
 export function createListItem(values = {}) {
-    return {
+    const item = {
         id: IdGenerator.next('item'),
         description: '',
         dateEntered: DateUtil.today(),
+        priority: 'Low',
+        targetDate: null,
+        completed: false,
         ...values
+    };
+    return {
+        ...item,
+        priority: normalizePriority(item.priority),
+        targetDate: DateUtil.clean(item.targetDate),
+        completed: item.completed === true
     };
 }
 
@@ -53,6 +69,9 @@ export function itemFromJSON(json) {
     return {
         id: json.id ?? IdGenerator.next('item'),
         description: String(json.description ?? ''),
-        dateEntered: DateUtil.clean(json.dateEntered) ?? DateUtil.today()
+        dateEntered: DateUtil.clean(json.dateEntered) ?? DateUtil.today(),
+        priority: normalizePriority(json.priority),
+        targetDate: DateUtil.clean(json.targetDate),
+        completed: json.completed === true
     };
 }
