@@ -8,8 +8,9 @@
 import { useCurrentList } from '../context/CurrentListContext.jsx';
 import { useLists } from '../context/ListsContext.jsx';
 import { useModals } from '../context/ModalContext.jsx';
-import { cloneItem, itemValues, valuesAreEqual } from '../model/listItem.js';
+import { cloneItem, itemValues, normalizePriority, valuesAreEqual } from '../model/listItem.js';
 import { normalizeListName } from '../model/wolfieList.js';
+import { DateUtil } from '../common/DateUtil.js';
 import { DuplicateItem_Transaction } from '../transactions/DuplicateItem_Transaction.js';
 import { EditItem_Transaction } from '../transactions/EditItem_Transaction.js';
 
@@ -32,27 +33,41 @@ export function useListEditor() {
         });
     }
 
+    function normalizeModalValues(values) {
+        return {
+            ...values,
+            description: values.description.trim(),
+            dateEntered: values.dateEntered || DateUtil.today(),
+            priority: normalizePriority(values.priority),
+            targetDate: DateUtil.clean(values.targetDate),
+            completed: values.completed === true
+        };
+    }
+
     /**
      * OK or Next in the item modal. Records the edit, or does nothing if
      * nothing changed.
      *
      * @param {Object} request { mode, index, values, then } where then is
-     * 'close' or 'next'
+     * 'close', 'next' or 'previous'
      */
     function commitItemModal({ index, values, then = 'close' }) {
         // the alert opens on top of the item modal, so what was typed is kept
-        if (values.description === '') {
+        if (values.description.trim() === '') {
             inform({ title: 'A Description Is Required', message: 'Every item needs a description.' });
             return;
         }
 
+        const newValues = normalizeModalValues(values);
         const oldValues = itemValues(list.items[index]);
-        if (!valuesAreEqual(oldValues, values)) {
-            addTransaction(new EditItem_Transaction(operations, index, oldValues, values));
+        if (!valuesAreEqual(oldValues, newValues)) {
+            addTransaction(new EditItem_Transaction(operations, index, oldValues, newValues));
         }
 
         if (then === 'next') {
             requestEditItem(index + 1);
+        } else if (then === 'previous') {
+            requestEditItem(index - 1);
         } else {
             closeItemModal();
         }

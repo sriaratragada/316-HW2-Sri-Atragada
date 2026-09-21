@@ -34,7 +34,8 @@
  */
 import { useRef, useState } from 'react';
 import { ModalNames, useModals } from '../../context/ModalContext.jsx';
-import { useListEditor } from '../../hooks/useListEditor.js';
+import { useListEditor, ItemModalModes } from '../../hooks/useListEditor.js';
+import { PRIORITIES } from '../../model/listItem.js';
 import { DateUtil } from '../../common/DateUtil.js';
 import Modal, { ModalButton, ModalFooter, ModalHeading } from './Modal.jsx';
 
@@ -43,12 +44,16 @@ export default function ItemModal() {
     const { commitItemModal } = useListEditor();
 
     const descriptionRef = useRef(null);
+    const isCreate = itemModal.mode === ItemModalModes.CREATE;
 
     // one piece of state for the whole form, so that Next can replace every
     // field in a single update
     const [values, setValues] = useState(() => ({
         description: itemModal.values.description ?? '',
-        dateEntered: itemModal.values.dateEntered ?? DateUtil.today()
+        dateEntered: itemModal.values.dateEntered ?? DateUtil.today(),
+        priority: itemModal.values.priority ?? 'Low',
+        targetDate: itemModal.values.targetDate ?? '',
+        completed: itemModal.values.completed ?? false
     }));
 
     function setField(field, value) {
@@ -58,7 +63,7 @@ export default function ItemModal() {
     /**
      * Validates on the way out and hands the values over.
      *
-     * @param {string} then 'close' or 'next'
+     * @param {string} then 'close', 'next' or 'previous'
      */
     function commit(then) {
         commitItemModal({
@@ -83,8 +88,8 @@ export default function ItemModal() {
         commit('close');
     }
 
-    // Next is meaningless on the last item
-    const canGoNext = itemModal.index < itemModal.itemCount - 1;
+    const canGoPrevious = !isCreate && itemModal.index > 0;
+    const canGoNext = !isCreate && itemModal.index < itemModal.itemCount - 1;
 
     return (
         <Modal
@@ -99,7 +104,9 @@ export default function ItemModal() {
             initialFocusRef={descriptionRef}>
 
             <ModalHeading id="item-modal-heading">
-                {`Item ${itemModal.index + 1} of ${itemModal.itemCount}`}
+                {isCreate
+                    ? 'New Item'
+                    : `Item ${itemModal.index + 1} of ${itemModal.itemCount}`}
             </ModalHeading>
 
             <form id="item-modal-form" autoComplete="off"
@@ -130,11 +137,56 @@ export default function ItemModal() {
                             onChange={(event) => setField('dateEntered', event.target.value)}
                             className={`${CONTROL} min-w-36`} />
                     </div>
+
+                    <div className={FIELD}>
+                        <label className={FIELD_LABEL} htmlFor="item-priority-input">Priority</label>
+                        <select
+                            id="item-priority-input"
+                            value={values.priority}
+                            onChange={(event) => setField('priority', event.target.value)}
+                            className={CONTROL}>
+                            {PRIORITIES.map((priority) => (
+                                <option key={priority} value={priority}>{priority}</option>
+                            ))}
+                        </select>
+                    </div>
+                </div>
+
+                <div className={FIELD_ROW}>
+                    <div className={FIELD}>
+                        <label className={FIELD_LABEL} htmlFor="item-target-date-input">
+                            The date this item is meant to be finished by
+                        </label>
+                        <input
+                            id="item-target-date-input"
+                            type="date"
+                            value={values.targetDate ?? ''}
+                            onChange={(event) => setField('targetDate', event.target.value)}
+                            className={`${CONTROL} min-w-36`} />
+                    </div>
+
+                    <div className={`${FIELD} justify-end pb-2`}>
+                        <label className="flex cursor-pointer items-center gap-2 text-base text-grey-900">
+                            <input
+                                id="item-completed-input"
+                                type="checkbox"
+                                checked={values.completed}
+                                onChange={(event) => setField('completed', event.target.checked)}
+                                className="h-[1.125rem] w-[1.125rem] accent-sbu-red" />
+                            Completed
+                        </label>
+                    </div>
                 </div>
             </form>
 
             <ModalFooter>
                 <div className="flex gap-2">
+                    <ModalButton id="item-previous-button" variant="quiet"
+                                 disabled={!canGoPrevious}
+                                 title="Save and move to the previous item"
+                                 onClick={() => commit('previous')}>
+                        ◀&nbsp;Previous
+                    </ModalButton>
                     <ModalButton id="item-next-button" variant="quiet"
                                  disabled={!canGoNext}
                                  title="Save and move to the next item"
@@ -149,7 +201,7 @@ export default function ItemModal() {
                     </ModalButton>
                     <ModalButton id="item-ok-button" variant="primary"
                                  onClick={() => commit('close')}>
-                        OK
+                        {isCreate ? 'Add' : 'OK'}
                     </ModalButton>
                 </div>
             </ModalFooter>
