@@ -8,16 +8,18 @@
 import { useCurrentList } from '../context/CurrentListContext.jsx';
 import { useLists } from '../context/ListsContext.jsx';
 import { useModals } from '../context/ModalContext.jsx';
-import { cloneItem, itemValues, normalizePriority, valuesAreEqual } from '../model/listItem.js';
+import { cloneItem, createListItem, itemValues, normalizePriority, valuesAreEqual } from '../model/listItem.js';
 import { normalizeListName } from '../model/wolfieList.js';
 import { DateUtil } from '../common/DateUtil.js';
+import { AddItem_Transaction } from '../transactions/AddItem_Transaction.js';
 import { DeleteItem_Transaction } from '../transactions/DeleteItem_Transaction.js';
 import { DuplicateItem_Transaction } from '../transactions/DuplicateItem_Transaction.js';
 import { EditItem_Transaction } from '../transactions/EditItem_Transaction.js';
 
 /** what the item modal is currently being used for */
 export const ItemModalModes = {
-    EDIT: 'edit'
+    EDIT: 'edit',
+    CREATE: 'create'
 };
 
 export function useListEditor() {
@@ -31,6 +33,15 @@ export function useListEditor() {
             index,
             itemCount: list.items.length,
             values: itemValues(list.items[index])
+        });
+    }
+
+    function requestAddItem() {
+        openItemModal({
+            mode: ItemModalModes.CREATE,
+            index: -1,
+            itemCount: list.items.length + 1,
+            values: itemValues(createListItem())
         });
     }
 
@@ -64,7 +75,7 @@ export function useListEditor() {
      * @param {Object} request { mode, index, values, then } where then is
      * 'close', 'next' or 'previous'
      */
-    function commitItemModal({ index, values, then = 'close' }) {
+    function commitItemModal({ mode, index, values, then = 'close' }) {
         // the alert opens on top of the item modal, so what was typed is kept
         if (values.description.trim() === '') {
             inform({ title: 'A Description Is Required', message: 'Every item needs a description.' });
@@ -72,6 +83,14 @@ export function useListEditor() {
         }
 
         const newValues = normalizeModalValues(values);
+
+        if (mode === ItemModalModes.CREATE) {
+            const item = createListItem(newValues);
+            addTransaction(new AddItem_Transaction(operations, item, list.items.length));
+            closeItemModal();
+            return;
+        }
+
         const oldValues = itemValues(list.items[index]);
         if (!valuesAreEqual(oldValues, newValues)) {
             addTransaction(new EditItem_Transaction(operations, index, oldValues, newValues));
@@ -111,6 +130,7 @@ export function useListEditor() {
         redo,
         closeList,
         requestEditItem,
+        requestAddItem,
         requestDeleteItem,
         commitItemModal,
         duplicateItem,
