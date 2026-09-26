@@ -8,7 +8,7 @@
  */
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { DataStorageManager } from '../data/DataStorageManager.js';
-import { buildUnusedName, createWolfieList, DEFAULT_LIST_NAME } from '../model/wolfieList.js';
+import { buildUnusedName, cloneList, createWolfieList, DEFAULT_LIST_NAME } from '../model/wolfieList.js';
 import { useModals } from './ModalContext.jsx';
 
 const ListsContext = createContext(null);
@@ -104,6 +104,19 @@ export function ListsProvider({ children }) {
         if (currentListId === listId) setCurrentListId(null);
     }
 
+    function duplicateList(listId) {
+        setLists((previous) => {
+            const index = previous.findIndex((list) => list.id === listId);
+            if (index < 0) return previous;
+
+            const original = previous[index];
+            const copyName = buildUnusedName(previous, `${original.name} (Copy)`);
+            const copy = cloneList(original, copyName);
+
+            return previous.toSpliced(index + 1, 0, copy);
+        });
+    }
+
     /**
      * The one way to change a list's contents. updater is given the list and
      * returns its new version. It uses the functional form of setLists, so it
@@ -124,6 +137,7 @@ export function ListsProvider({ children }) {
         closeList: () => setCurrentListId(null),
         createList,
         deleteList,
+        duplicateList,
         updateList,
         clearNameFocusRequest: () => setListNeedingNameFocus(null)
     };
